@@ -2,6 +2,7 @@
   "contractName": "CirculatingSupplyERC721",
   "sourceName": "contracts/CirculatingSupply/CirculatingSupplyERC721.sol",
   "compilerVersion": "v0.8.6+commit.11564f7e",
+  "constructorArguments": "",
   "input": {
     "language": "Solidity",
     "sources": {

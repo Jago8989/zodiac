@@ -2,6 +2,7 @@
   "contractName": "ExitERC721",
   "sourceName": "contracts/ExitModule/ExitERC721Module.sol",
   "compilerVersion": "v0.8.6+commit.11564f7e",
+  "constructorArguments": "",
   "input": {
     "language": "Solidity",
     "sources": {

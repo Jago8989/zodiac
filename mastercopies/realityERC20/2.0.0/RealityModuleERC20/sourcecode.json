@@ -2,6 +2,7 @@
   "contractName": "RealityModuleERC20",
   "sourceName": "contracts/RealityModuleERC20.sol",
   "compilerVersion": "v0.8.0+commit.c7dfd78e",
+  "constructorArguments": "",
   "input": {
     "language": "Solidity",
     "settings": {

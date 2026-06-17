@@ -2,6 +2,7 @@
   "contractName": "Packer",
   "sourceName": "contracts/packers/Packer.sol",
   "compilerVersion": "v0.8.21+commit.d9974bed",
+  "constructorArguments": "",
   "input": {
     "language": "Solidity",
     "sources": {

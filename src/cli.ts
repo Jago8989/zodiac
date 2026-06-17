@@ -3,6 +3,7 @@ import "dotenv/config";
 
 import { runDeploy } from "../commands/deploy.js";
 import { runExtract } from "../commands/extract.js";
+import { runVerify } from "../commands/verify.js";
 
 const USAGE = `zodiac — mastercopy artifact tooling
 
@@ -24,6 +25,14 @@ Usage:
       regenerates them). Addresses come from the canonical registry; source is
       read from [network] or, by default, the default explorer set.
 
+  zodiac verify <name> [version]
+      Verify deployed local mastercopy artifacts for each canonical version of
+      a known contract across configured Etherscan V2 explorers.
+
+  zodiac verify list <name> [version]
+      Check whether each canonical version's local artifact set is verified on
+      each configured Etherscan V2 explorer.
+
 Environment:
   ALCHEMY_KEY                     enables Alchemy RPC endpoints
   MNEMONIC                        signer used by deploy
@@ -40,6 +49,10 @@ async function main() {
     }
     case "extract": {
       await runExtract(rest);
+      break;
+    }
+    case "verify": {
+      await runVerify(rest);
       break;
     }
     case "help":

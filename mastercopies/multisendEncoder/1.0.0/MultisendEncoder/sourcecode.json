@@ -2,6 +2,7 @@
   "contractName": "MultisendEncoder",
   "sourceName": "contracts/MultisendEncoder.sol",
   "compilerVersion": "v0.8.9+commit.e5eed63a",
+  "constructorArguments": "",
   "input": {
     "language": "Solidity",
     "sources": {

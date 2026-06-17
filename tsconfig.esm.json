@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "rootDir": "src",
+    "outDir": "dist/esm",
+    "declaration": true
+  },
+  "include": ["src"],
+  "exclude": ["src/cli.ts"]
+}

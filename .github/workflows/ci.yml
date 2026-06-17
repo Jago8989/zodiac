@@ -13,11 +13,8 @@ jobs:
         with:
           path: "**/node_modules"
           key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
+      - uses: foundry-rs/foundry-toolchain@v1
       - run: yarn
+      - run: yarn lint
       - run: yarn build
-      - run: yarn build:sdk
-      - run: yarn coverage
-      - name: Coveralls
-        uses: coverallsapp/github-action@master
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - run: yarn test

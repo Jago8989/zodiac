@@ -1,7 +1,6 @@
 # Zodiac: The expansion pack for DAOs
 
 [![Build Status](https://github.com/gnosisguild/zodiac/workflows/zodiac/badge.svg?branch=master)](https://github.com/gnosisguild/zodiac/actions?branch=master)
-[![Coverage Status](https://coveralls.io/repos/github/gnosis/zodiac/badge.svg?branch=master)](https://coveralls.io/github/gnosisguild/zodiac?branch=master)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](https://github.com/gnosisguild/CODE_OF_CONDUCT)
 
 A composable design philosophy for DAOs, [Zodiac](https://gnosisguild.mirror.xyz/OuhG5s2X5uSVBx1EK4tKPhnUc91Wh9YM0fwSnC8UNcg) is a collection of tools built according to an open standard.
@@ -30,6 +29,10 @@ The Zodiac open standard consists of Avatars, Modules, Modifiers, and Guards arc
 
 ## Overview
 
+This repository contains the Zodiac mastercopy tooling: a CLI and TypeScript SDK to extract deployed mastercopies (sources, ABI and bytecode) from block explorers into a versioned `deploy-data/` folder, plus a registry of known Zodiac contracts and their canonical addresses.
+
+The Zodiac core contracts (`Module.sol`, `Modifier.sol`, `BaseGuard.sol`, `ModuleProxyFactory.sol`, etc.), along with their tests and audits, live in [zodiac-core](https://github.com/gnosisguild/zodiac-core). If you are building a module, modifier, or guard, use the `@gnosis-guild/zodiac-core` package.
+
 ### Installation
 
 ```bash
@@ -38,12 +41,12 @@ yarn add @gnosis-guild/zodiac
 
 ### Usage
 
-Once installed, you can use the contracts in the library by importing them to your contract:
+To build your own contract based on the Zodiac core contracts, install [zodiac-core](https://github.com/gnosisguild/zodiac-core) and import from it:
 
 ```solidity
 pragma solidity ^0.8.6;
 
-import "@gnosis-guild/zodiac/contracts/core/Module.sol";
+import "@gnosis-guild/zodiac-core/contracts/core/Module.sol";
 
 contract MyModule is Module {
   /// insert your code here
@@ -51,11 +54,51 @@ contract MyModule is Module {
 
 ```
 
+### Mastercopy deploy-data
+
+This package has no build step. It publishes data: the known-contract address
+registry plus a versioned `deploy-data/` folder of extracted mastercopy
+artifacts (versions, addresses, ABIs, bytecode, sources).
+
+To populate `deploy-data/`, run the extract tool (via `ts-node`, no build). It
+is driven by the known-contract registry — addresses come from
+`CanonicalAddresses`, so you pass a name/version, not an address:
+
+```bash
+yarn extract [name] [version] [network] [--force]
+#   (no args)      every known contract + version
+#   <name>         every version of that contract
+#   <name> <ver>   just that one
+```
+
+Existing folders are skipped unless `--force` is passed, which removes and
+regenerates them. `name`/`version` are validated against the registry (unknown
+ones error out). Source is read from `[network]` or, by default, mainnet then
+gnosis. It writes one folder per asset (the main contract and each linked
+library):
+
+```
+deploy-data/<module>/<version>/<asset>/abi.json
+deploy-data/<module>/<version>/<asset>/sourcecode.json   # standard-JSON compiler input
+deploy-data/<module>/<version>/<asset>/bytecode.json     # address, factory, salt, creationBytecode
+```
+
+`extract` works entirely through the explorer: it fetches the verified source
+and recovers the exact init code and salt from the deployment transaction, so a
+contract can later reproduce at the same address on every chain. Linked
+libraries are discovered from the compiler input and extracted recursively.
+Configure `ETHERSCAN_API_KEY` in your env — see `.env.sample`.
+
+> Deploying/verifying from `deploy-data/` is a planned follow-up. The legacy
+> bundled-ABI SDK (`MasterCopyInitData`, `ContractFactories`,
+> `deployAndSetUpModule`, …) was removed in v5; the known-contracts and
+> canonical-address registry (`KnownContracts`, `ContractAddresses`) is kept.
+
 ### Zodiac compliant tools
 
 #### Avatars
 
-- **[Safe](https://safe.global)**: The most trusted platform for managing digital assets on Ethereum. Zodiac embraces Safe as a powerful, extensible and programmable account standard. Safe is the reference implementation of the [IAvatar.sol](contracts/interfaces/IAvatar.sol) interface specified in this library. However, all Zodiac tools are framework agnostic, and they can be plugged into any programmable account that implements the IAvatar interface.
+- **[Safe](https://safe.global)**: The most trusted platform for managing digital assets on Ethereum. Zodiac embraces Safe as a powerful, extensible and programmable account standard. Safe is the reference implementation of the [IAvatar.sol](https://github.com/gnosisguild/zodiac-core/blob/main/contracts/interfaces/IAvatar.sol) interface specified in this library. However, all Zodiac tools are framework agnostic, and they can be plugged into any programmable account that implements the IAvatar interface.
 
 #### Modules
 

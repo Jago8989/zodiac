@@ -1,6 +1,4 @@
 {
-  "network": "mainnet",
-  "chainId": 1,
   "address": "0x00000000062c52e29e8029Dc2413172f6D619d85",
   "factory": "0xce0042B868300000d44A59004Da54A005ffdcf9f",
   "salt": "0xddab1fa8c9085d8d8677711bcd78e94f7af3cbd1ca711def31ea3e0cf982d90c",

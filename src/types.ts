@@ -15,9 +15,6 @@ export interface SourceCodeFile {
 
 /** Contents of `bytecode.json` — reproducible factory deployment metadata. */
 export interface BytecodeFile {
-  /** Network the artifact was extracted from. */
-  network: string;
-  chainId: number;
   /** CREATE2 address. Reproduces on every chain from factory + salt + creationBytecode. */
   address: string;
   /** CREATE2 singleton factory the creation bytecode was relayed through. */

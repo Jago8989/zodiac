@@ -316,4 +316,3 @@ export async function getCode({
 
   return (result as string) ?? "0x";
 }
-

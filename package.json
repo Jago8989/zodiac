@@ -28,7 +28,7 @@
     "postbuild": "node postbuild.mjs",
     "cli": "tsx src/cli.ts",
     "extract": "tsx src/cli.ts extract",
-    "format": "prettier --write ./src/**/*.ts ./commands/**/*.ts ./*.ts",
+    "format": "prettier --write ./src/**/*.ts ./commands/**/*.ts",
     "release": "yarn build && yarn publish --access public"
   },
   "repository": {

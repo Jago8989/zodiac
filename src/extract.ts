@@ -52,7 +52,6 @@ export async function extract({
   const visited = new Map<string, Asset>();
   await extractOne({
     address,
-    chainId: net.chainId,
     networkName: net.name,
     apiKey,
     visited,
@@ -63,14 +62,12 @@ export async function extract({
 async function extractOne({
   address,
   nameHint,
-  chainId,
   networkName,
   apiKey,
   visited,
 }: {
   address: string;
   nameHint?: string;
-  chainId: number;
   networkName: string;
   apiKey?: string;
   visited: Map<string, Asset>;
@@ -135,8 +132,6 @@ async function extractOne({
       input: source.compilerInput,
     },
     bytecode: {
-      network: networkName,
-      chainId,
       address: predicted,
       factory,
       salt,
@@ -151,7 +146,6 @@ async function extractOne({
     await extractOne({
       address: lib.address,
       nameHint: lib.libraryName,
-      chainId,
       networkName,
       apiKey,
       visited,

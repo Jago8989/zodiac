@@ -25,7 +25,7 @@ Usage:
       read from [network] or, by default, the default explorer set.
 
 Environment:
-  INFURA_KEY                      enables Infura RPC endpoints
+  ALCHEMY_KEY                     enables Alchemy RPC endpoints
   MNEMONIC                        signer used by deploy
   ETHERSCAN_API_KEY[_<NETWORK>]   explorer API key(s)
 `;

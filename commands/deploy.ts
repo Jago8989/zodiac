@@ -1,14 +1,25 @@
 import { existsSync, readdirSync, readFileSync } from "fs";
 import path from "path";
-import { clearLine, cursorTo } from "readline";
 
 import { Interface, JsonRpcProvider, Wallet, getAddress } from "ethers";
 
 import { CanonicalAddresses, KnownContracts } from "../src/contracts.js";
 import { defaultMastercopiesDir } from "../src/mastercopies.js";
 import { NetworkConfig, networks } from "../src/networks.js";
+import { getCode } from "../src/rpc.js";
 import { ERC2470_FACTORY, NICK_FACTORY } from "../src/singleton.js";
 import { BytecodeFile } from "../src/types.js";
+import {
+  CHECK,
+  CROSS,
+  QUESTION,
+  clearProgress,
+  color,
+  printStatusLine,
+  printTable,
+  renderProgress,
+  showTransient,
+} from "../src/ui.js";
 
 interface DeploymentCell {
   label: string;
@@ -20,9 +31,6 @@ interface DeployableAsset {
 }
 
 const knownContractNames = Object.values(KnownContracts);
-const CHECK = "✓";
-const CROSS = "✗";
-const QUESTION = "?";
 
 const erc2470Interface = new Interface([
   "function deploy(bytes _initCode, bytes32 _salt) returns (address)",
@@ -264,16 +272,21 @@ async function deployTarget({
         to: asset.bytecode.factory,
         data: deploymentData(asset.bytecode),
       });
-      await tx.wait();
+      const receipt = await tx.wait();
+      if (!receipt || receipt.status !== 1) {
+        throw new Error(`deployment transaction failed: ${tx.hash}`);
+      }
 
-      const deployedCode = await provider.getCode(asset.bytecode.address);
-      if (deployedCode === "0x") {
-        throw new Error(`${asset.name} deployment produced no code`);
+      const deployed = await waitForCode(provider, asset.bytecode.address);
+      if (!deployed) {
+        throw new Error(
+          `${asset.name} deployment produced no code: ${tx.hash}`
+        );
       }
     }
 
-    const finalCode = await provider.getCode(address);
-    if (finalCode === "0x") {
+    const finalDeployed = await waitForCode(provider, address);
+    if (!finalDeployed) {
       throw new Error("canonical address is still empty");
     }
 
@@ -315,8 +328,8 @@ async function failedDeployment({
 }
 
 function rpcUrlFor(network: NetworkConfig): string | null {
-  if (network.infuraRpcUrl && process.env.INFURA_KEY) {
-    return network.infuraRpcUrl;
+  if (network.alchemyRpcUrl && process.env.ALCHEMY_KEY) {
+    return network.alchemyRpcUrl;
   }
   return network.publicRpc;
 }
@@ -393,6 +406,18 @@ function deploymentErrorMessage(error: unknown): string {
   return (error as Error)?.message || String(error);
 }
 
+async function waitForCode(
+  provider: JsonRpcProvider,
+  address: string
+): Promise<boolean> {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const code = await provider.getCode(address);
+    if (code !== "0x") return true;
+    await new Promise((resolve) => setTimeout(resolve, 1_000));
+  }
+  return false;
+}
+
 function isInsufficientFundsError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
 
@@ -414,101 +439,4 @@ function isInsufficientFundsError(error: unknown): boolean {
     isInsufficientFundsError(maybeError.cause) ||
     isInsufficientFundsError(maybeError.error)
   );
-}
-
-function printStatusLine(message: string): void {
-  clearProgress();
-  console.log(message);
-}
-
-function showTransient(message: string): void {
-  if (!process.stderr.isTTY) return;
-  clearProgress();
-  cursorTo(process.stderr, 0);
-  process.stderr.write(message);
-}
-
-async function getCode(rpcUrl: string, address: string): Promise<string> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5_000);
-
-  try {
-    const response = await fetch(rpcUrl, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "eth_getCode",
-        params: [address, "latest"],
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      throw new Error(`RPC returned HTTP ${response.status}`);
-    }
-
-    const payload = (await response.json()) as {
-      result?: unknown;
-      error?: unknown;
-    };
-    if (payload.error || typeof payload.result !== "string") {
-      throw new Error("RPC returned an invalid eth_getCode response");
-    }
-    return payload.result;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
-function printTable(
-  headers: string[],
-  rows: { network: string; cells: DeploymentCell[] }[],
-  caption: string[]
-): void {
-  const body = rows.map((row) => [
-    row.network,
-    ...row.cells.map((c) => c.label),
-  ]);
-  const widths = headers.map((header, index) =>
-    Math.max(header.length, ...body.map((row) => visibleLength(row[index])))
-  );
-
-  console.log(formatRow(headers, widths));
-  console.log(widths.map((width) => "-".repeat(width)).join("  "));
-  for (const row of body) {
-    console.log(formatRow(row, widths));
-  }
-  console.log();
-  console.log(caption.join("  "));
-}
-
-function formatRow(row: string[], widths: number[]): string {
-  return row
-    .map(
-      (value, index) => value + " ".repeat(widths[index] - visibleLength(value))
-    )
-    .join("  ");
-}
-
-function visibleLength(value: string): number {
-  return value.replace(/\u001b\[[0-9;]*m/g, "").length;
-}
-
-function color(value: string, colorName: "green" | "red" | "yellow"): string {
-  const code = colorName === "green" ? 32 : colorName === "red" ? 31 : 33;
-  return `\u001b[${code}m${value}\u001b[0m`;
-}
-
-function renderProgress(completed: number, total: number): void {
-  if (!process.stderr.isTTY) return;
-  cursorTo(process.stderr, 0);
-  process.stderr.write(`Checking deployments: ${completed}/${total} requests`);
-}
-
-function clearProgress(): void {
-  if (!process.stderr.isTTY) return;
-  cursorTo(process.stderr, 0);
-  clearLine(process.stderr, 0);
 }

@@ -6,24 +6,23 @@ import { defaultMastercopiesDir, writeAsset } from "../src/mastercopies.js";
 import { extract } from "../src/extract.js";
 
 /** Networks tried, in order, when none is specified. */
-const DEFAULT_NETWORKS = ["mainnet", "gnosis"];
+const DEFAULT_NETWORKS = ["mainnet", "gnosis", "arbitrum", "optimism", "base"];
 
 const knownContractNames = Object.values(KnownContracts);
 
 /**
  * Extract known mastercopies into `mastercopies/`, driven by the canonical
- * address registry rather than an explicit address.
+ * address registry. Script behaves:
  *
  *  - no name              -> every known contract, every version
  *  - name, no version     -> every version of that contract
  *  - name + version       -> just that one
  *
- * A bare loop skips versions already present on disk. A fully-specified
- * `name + version` is a forced refresh: its folder is removed and re-extracted.
+ * Existing folders are skipped unless `force` is true, in which case they are
+ * removed and re-extracted.
  *
  * The address for each `name@version` comes from `CanonicalAddresses`. Source is
- * read from the first network (default: mainnet, then gnosis) where the
- * contract is found.
+ * read from the first default explorer where the contract is verified.
  *
  * Throws on an unknown contract name or version.
  */
@@ -89,7 +88,9 @@ function resolveNames(name?: string): KnownContracts[] {
   );
   if (!matched) {
     throw new Error(
-      `Unknown contract "${name}". Known contracts: ${knownContractNames.join(", ")}`
+      `Unknown contract "${name}". Known contracts: ${knownContractNames.join(
+        ", "
+      )}`
     );
   }
   return [matched];
@@ -132,25 +133,31 @@ async function extractTarget({
   mastercopiesDir: string;
   strict: boolean;
 }): Promise<void> {
-  let lastError: unknown;
+  let foundNonFactoryDeployment = false;
+
   for (const network of networks) {
     try {
       const assets = await extract({ network, address, apiKey });
       for (const asset of assets.values()) {
         writeAsset({ module: contractName, version, asset, mastercopiesDir });
       }
-      console.log(
-        `  ✔ ${contractName}@${version} (${network}): ${assets.size} asset(s)`
-      );
+      console.log(`  ✔ ${contractName}@${version}: ${assets.size} asset(s)`);
       return;
     } catch (error) {
-      lastError = error;
+      if (
+        (error as Error)?.message?.includes(
+          "was not deployed via a known singleton factory"
+        )
+      ) {
+        foundNonFactoryDeployment = true;
+      }
+      continue;
     }
   }
 
-  const message = `${contractName}@${version}: ${
-    (lastError as Error)?.message || lastError
-  }`;
+  const message = foundNonFactoryDeployment
+    ? `${contractName}@${version}: not deployed via a known singleton factory`
+    : `${contractName}@${version}: could not find any verified source`;
   if (strict) throw new Error(message);
   console.warn(`  ✘ ${message}`);
 }

@@ -1,10 +1,10 @@
 /**
  * Known Zodiac contracts and their canonical mastercopy addresses.
  *
- * Mastercopies are deployed through the CREATE2 singleton factory, so each
- * `name@version` has one address that is identical on every chain. This is pure
- * address/name data — no ABIs, bytecode or typechain types (use `extract` to
- * capture per-version artifacts into `mastercopies/`).
+ * Canonical mastercopy addresses by `name@version`. Most are deployed through
+ * CREATE2 singleton factories, but the registry itself is pure address/name
+ * data — no ABIs, bytecode or typechain types (use `extract` to capture
+ * per-version artifacts into `mastercopies/`).
  */
 
 export enum KnownContracts {
@@ -22,8 +22,6 @@ export enum KnownContracts {
   SCOPE_GUARD = "scopeGuard",
   FACTORY = "factory",
   ROLES = "roles",
-  ROLES_V1 = "roles",
-  ROLES_V2 = "roles",
   OZ_GOVERNOR = "ozGovernor",
   ERC20_VOTES = "erc20Votes",
   ERC721_VOTES = "erc721Votes",
@@ -95,6 +93,7 @@ export const CanonicalAddresses: Record<
   },
   [KnownContracts.OPTIMISTIC_GOVERNOR]: {
     "1.0.0": "",
+    "1.2.0": "0x28CeBFE94a03DbCA9d17143e9d2Bd1155DC26D5d",
   },
   [KnownContracts.OZ_GOVERNOR]: {
     "1.0.0": "0xe28c39FAC73cce2B33C4C003049e2F3AE43f77d5",

@@ -13,22 +13,21 @@ export interface SourceCodeFile {
   input: any;
 }
 
-/** Contents of `bytecode.json` — everything needed to redeploy the asset. */
+/** Contents of `bytecode.json` — reproducible factory deployment metadata. */
 export interface BytecodeFile {
   /** Network the artifact was extracted from. */
   network: string;
   chainId: number;
   /** CREATE2 address. Reproduces on every chain from factory + salt + creationBytecode. */
   address: string;
-  /** CREATE2 singleton factory the creation bytecode is relayed through. */
+  /** CREATE2 singleton factory the creation bytecode was relayed through. */
   factory: string;
-  /** Salt recovered from the deployment transaction. */
+  /** Salt recovered from the singleton-factory deployment transaction. */
   salt: string;
   /**
    * Creation bytecode: the exact init code (creation code + abi-encoded
-   * constructor args, with any libraries linked) submitted to the factory.
-   * Relay this, with the same factory + salt, to redeploy at `address` on any
-   * other network.
+   * constructor args, with any libraries linked). Relay this, with the same
+   * factory + salt, to redeploy at `address` on any other network.
    */
   creationBytecode: string;
   /**

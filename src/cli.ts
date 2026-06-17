@@ -15,7 +15,7 @@ Usage:
         • name version   -> just that one
       Existing folders are skipped unless --force is given (which removes and
       regenerates them). Addresses come from the canonical registry; source is
-      read from [network] or, by default, mainnet then gnosis.
+      read from [network] or, by default, the default explorer set.
 
 Environment:
   ETHERSCAN_API_KEY[_<NETWORK>]   explorer API key(s)

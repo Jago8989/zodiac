@@ -4,7 +4,7 @@ import { predictSingletonAddress } from "@gnosis-guild/zodiac-core";
 import { resolveNetwork } from "./networks.js";
 import {
   getCode,
-  getContractCreationTx,
+  getContractCreation,
   getSourceCode,
   getTransaction,
 } from "./explorer.js";
@@ -82,22 +82,22 @@ async function extractOne({
   const source = await getSourceCode({ address, network: networkName, apiKey });
   const name = nameHint || source.contractName;
 
-  // Recover the creation bytecode + salt from the deployment transaction. This
-  // is what gets relayed to other networks, so it must be a singleton-factory
-  // deployment — otherwise the asset isn't address-stable and we bail.
-  const deployTx = await getContractCreationTx({
+  const creation = await getContractCreation({
     address,
     network: networkName,
     apiKey,
   });
-  const tx = deployTx
-    ? await getTransaction({ txHash: deployTx, network: networkName, apiKey })
+  const tx = creation?.txHash
+    ? await getTransaction({
+        txHash: creation.txHash,
+        network: networkName,
+        apiKey,
+      })
     : undefined;
   const recovered = tx && recoverDeployment(tx);
   if (!recovered) {
     throw new Error(
-      `${name} @ ${address} (${networkName}) was not deployed via a known ` +
-        `singleton factory; cannot extract relayable creation bytecode.`
+      `${name} @ ${address} was not deployed via a known singleton factory.`
     );
   }
 

@@ -21,6 +21,30 @@ export interface SourceCode {
   constructorArguments: string;
 }
 
+export interface ContractCreation {
+  txHash?: string;
+  creationBytecode?: string;
+}
+
+interface ExplorerEntry {
+  SourceCode: string;
+  ContractName: string;
+  ContractFileName?: string;
+  OptimizationUsed: string;
+  Runs: string;
+  EVMVersion: string;
+  Library?: string;
+  CompilerVersion: string;
+  ABI: string;
+  ConstructorArguments: string;
+}
+
+interface ExplorerResponse<T = any> {
+  status: string;
+  message: string;
+  result: T;
+}
+
 function isOk(status: unknown): boolean {
   return String(status) === "1";
 }
@@ -38,35 +62,67 @@ function safeJsonParse(input: string): any {
   }
 }
 
+function parseLibraries(input: string | undefined): Record<string, string> {
+  const libraries: Record<string, string> = {};
+  for (const entry of (input || "").split(/[;,]/)) {
+    const match = entry.trim().match(/^(.+?)(?::|\s)+(0x[0-9a-fA-F]{40})$/);
+    if (match) libraries[match[1].trim()] = match[2];
+  }
+  return libraries;
+}
+
+function compilerInputFromExplorerEntry(entry: ExplorerEntry): {
+  compilerInput: any;
+  sourceName: string;
+} {
+  const sourceCode = entry.SourceCode.trim();
+  const contractName = entry.ContractName;
+
+  if (sourceCode.startsWith("{")) {
+    const compilerInput = safeJsonParse(sourceCode);
+    return {
+      compilerInput,
+      sourceName: sourceNameFor(compilerInput, contractName),
+    };
+  }
+
+  const sourceName = entry.ContractFileName || `${contractName}.sol`;
+  const settings: any = {};
+
+  if (entry.OptimizationUsed !== "") {
+    settings.optimizer = {
+      enabled: String(entry.OptimizationUsed) === "1",
+      runs: Number(entry.Runs) || 200,
+    };
+  }
+  if (entry.EVMVersion && entry.EVMVersion !== "Default") {
+    settings.evmVersion = entry.EVMVersion;
+  }
+
+  const libraries = parseLibraries(entry.Library);
+  if (Object.keys(libraries).length > 0) {
+    settings.libraries = { [sourceName]: libraries };
+  }
+
+  return {
+    sourceName,
+    compilerInput: {
+      language: "Solidity",
+      sources: {
+        [sourceName]: { content: sourceCode },
+      },
+      settings,
+    },
+  };
+}
+
 function resolveApiKey(network: string, explicit?: string): string {
-  const apiKey =
+  return (
     explicit ||
     process.env[`ETHERSCAN_API_KEY_${network.toUpperCase()}`] ||
     process.env.ETHERSCAN_API_KEY ||
-    "";
-  return apiKey;
-}
-
-/**
- * Resolve the explorer endpoint and the base query params (api key and, for the
- * Etherscan V2 multichain endpoint, the chain id) for a network.
- */
-function explorerTarget(
-  networkOrChainId: string | number,
-  apiKey?: string
-): { url: string; base: Record<string, string> } {
-  const network = resolveNetwork(networkOrChainId);
-  if (!network.etherscanApiUrl) {
-    throw new Error(
-      `${network.name} (chain ${network.chainId}) is not supported by Etherscan ` +
-        `V2; cannot extract. See https://api.etherscan.io/v2/chainlist`
-    );
-  }
-  // etherscanApiUrl already carries `?chainid=`; only the api key is added here.
-  const base: Record<string, string> = {
-    apikey: resolveApiKey(network.name, apiKey),
-  };
-  return { url: network.etherscanApiUrl, base };
+    ""
+  );
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -77,27 +133,37 @@ function isRateLimited(body: any): boolean {
 }
 
 /**
- * GET against the explorer, retrying with backoff when the free-tier rate limit
- * is hit (recursive extraction fires several requests in quick succession).
+ * Internal helper to perform a GET against the explorer API.
+ * Resolves network, API key, and handles rate-limiting retries.
  */
-async function explorerGet(
-  apiUrl: string,
+async function explorerGet<T = any>(
+  networkOrChainId: string | number,
   params: Record<string, string>,
+  apiKey?: string,
   attempt = 0
-): Promise<any> {
-  const url = new URL(apiUrl);
-  // Merge onto the URL's existing query so the embedded `chainid` is preserved.
+): Promise<ExplorerResponse<T>> {
+  const network = resolveNetwork(networkOrChainId);
+  if (!network.etherscanApiUrl) {
+    throw new Error(
+      `${network.name} (chain ${network.chainId}) is not supported by Etherscan V2.`
+    );
+  }
+
+  const url = new URL(network.etherscanApiUrl);
+  url.searchParams.set("apikey", resolveApiKey(network.name, apiKey));
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }
-  const response = await fetch(url, { method: "GET" });
+
+  const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Explorer request failed: ${response.status}`);
   }
-  const body = await response.json();
+
+  const body = (await response.json()) as ExplorerResponse<T>;
   if (isRateLimited(body) && attempt < 5) {
     await sleep(1000 * (attempt + 1));
-    return explorerGet(apiUrl, params, attempt + 1);
+    return explorerGet(networkOrChainId, params, apiKey, attempt + 1);
   }
   return body;
 }
@@ -114,14 +180,15 @@ export async function getSourceCode({
   network: string | number;
   apiKey?: string;
 }): Promise<SourceCode> {
-  const { url, base } = explorerTarget(network, apiKey);
-
-  const { status, message, result } = await explorerGet(url, {
-    ...base,
-    module: "contract",
-    action: "getsourcecode",
-    address,
-  });
+  const { status, message, result } = await explorerGet<ExplorerEntry[]>(
+    network,
+    {
+      module: "contract",
+      action: "getsourcecode",
+      address,
+    },
+    apiKey
+  );
 
   if (!isOk(status)) {
     throw new Error(
@@ -136,12 +203,10 @@ export async function getSourceCode({
     throw new Error(`Contract ${address} is not verified on ${network}`);
   }
 
-  const compilerInput = safeJsonParse(entry.SourceCode);
-  const contractName = entry.ContractName as string;
-  const sourceName = sourceNameFor(compilerInput, contractName);
+  const { compilerInput, sourceName } = compilerInputFromExplorerEntry(entry);
 
   return {
-    contractName,
+    contractName: entry.ContractName,
     sourceName,
     compilerVersion: entry.CompilerVersion,
     compilerInput,
@@ -170,9 +235,9 @@ function sourceNameFor(compilerInput: any, contractName: string): string {
 }
 
 /**
- * Get the transaction hash that created a contract.
+ * Get creation metadata (tx hash and bytecode) for a contract.
  */
-export async function getContractCreationTx({
+export async function getContractCreation({
   address,
   network,
   apiKey,
@@ -180,20 +245,24 @@ export async function getContractCreationTx({
   address: string;
   network: string | number;
   apiKey?: string;
-}): Promise<string | undefined> {
-  const { url, base } = explorerTarget(network, apiKey);
-
-  const { status, result } = await explorerGet(url, {
-    ...base,
-    module: "contract",
-    action: "getcontractcreation",
-    contractaddresses: address,
-  });
+}): Promise<ContractCreation | undefined> {
+  const { status, result } = await explorerGet<any[]>(
+    network,
+    {
+      module: "contract",
+      action: "getcontractcreation",
+      contractaddresses: address,
+    },
+    apiKey
+  );
 
   if (!isOk(status) || !Array.isArray(result) || result.length === 0) {
     return undefined;
   }
-  return result[0].txHash as string;
+  return {
+    txHash: result[0].txHash,
+    creationBytecode: result[0].creationBytecode,
+  };
 }
 
 /**
@@ -208,14 +277,15 @@ export async function getTransaction({
   network: string | number;
   apiKey?: string;
 }): Promise<{ to: string | null; input: string } | undefined> {
-  const { url, base } = explorerTarget(network, apiKey);
-
-  const { result } = await explorerGet(url, {
-    ...base,
-    module: "proxy",
-    action: "eth_getTransactionByHash",
-    txhash: txHash,
-  });
+  const { result } = await explorerGet(
+    network,
+    {
+      module: "proxy",
+      action: "eth_getTransactionByHash",
+      txhash: txHash,
+    },
+    apiKey
+  );
 
   if (!result?.input) return undefined;
   return { to: result.to ?? null, input: result.input as string };
@@ -233,15 +303,17 @@ export async function getCode({
   network: string | number;
   apiKey?: string;
 }): Promise<string> {
-  const { url, base } = explorerTarget(network, apiKey);
-
-  const { result } = await explorerGet(url, {
-    ...base,
-    module: "proxy",
-    action: "eth_getCode",
-    address,
-    tag: "latest",
-  });
+  const { result } = await explorerGet(
+    network,
+    {
+      module: "proxy",
+      action: "eth_getCode",
+      address,
+      tag: "latest",
+    },
+    apiKey
+  );
 
   return (result as string) ?? "0x";
 }
+

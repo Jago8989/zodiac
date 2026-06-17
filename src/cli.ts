@@ -1,13 +1,16 @@
 #!/usr/bin/env node
-import { config as loadEnv } from "dotenv";
+import "dotenv/config";
 
+import { runDeploy } from "../commands/deploy.js";
 import { runExtract } from "../commands/extract.js";
-
-loadEnv();
 
 const USAGE = `zodiac — mastercopy artifact tooling
 
 Usage:
+  zodiac deploy list <name>
+      Check whether each canonical version of a known contract is already
+      deployed on each configured network.
+
   zodiac extract [name] [version] [network] [--force]
       Extract known mastercopies (source, ABI, bytecode) into mastercopies/.
         • no args        -> every known contract + version
@@ -18,6 +21,7 @@ Usage:
       read from [network] or, by default, the default explorer set.
 
 Environment:
+  INFURA_KEY                      enables Infura RPC endpoints
   ETHERSCAN_API_KEY[_<NETWORK>]   explorer API key(s)
 `;
 
@@ -25,6 +29,10 @@ async function main() {
   const [command, ...rest] = process.argv.slice(2);
 
   switch (command) {
+    case "deploy": {
+      await runDeploy(rest);
+      break;
+    }
     case "extract": {
       await runExtract(rest);
       break;

@@ -269,14 +269,11 @@ async function deployTarget({
       }
 
       const data = deploymentData(asset.bytecode);
-      const estimatedGas = await provider.estimateGas({
-        to: asset.bytecode.factory,
-        data,
-      });
+      const gasLimit = await deploymentGasLimit(provider, asset.bytecode, data);
       const tx = await signer.sendTransaction({
         to: asset.bytecode.factory,
         data,
-        gasLimit: addGasBuffer(estimatedGas),
+        gasLimit,
       });
       const receipt = await tx.wait();
       if (!receipt || receipt.status !== 1) {
@@ -407,8 +404,31 @@ function deploymentData(bytecode: BytecodeFile): string {
   throw new Error(`unsupported singleton factory ${bytecode.factory}`);
 }
 
-function addGasBuffer(estimatedGas: bigint): bigint {
-  return (estimatedGas * 120n) / 100n;
+async function deploymentGasLimit(
+  provider: JsonRpcProvider,
+  bytecode: BytecodeFile,
+  data: string
+): Promise<bigint> {
+  const outerGas = await provider.estimateGas({
+    to: bytecode.factory,
+    data,
+  });
+
+  if (getAddress(bytecode.factory) !== getAddress(ERC2470_FACTORY)) {
+    return outerGas;
+  }
+
+  /*
+   * Same workaround used by zodiac-core's deployMastercopy helper: some RPCs
+   * underestimate ERC-2470 deployments because the outer factory call can
+   * succeed even when the inner CREATE2 returns address(0). Include the gas
+   * estimate for the raw creation bytecode so the inner deployment has enough
+   * gas to actually write code.
+   */
+  const innerGas = await provider.estimateGas({
+    data: bytecode.creationBytecode,
+  });
+  return outerGas + innerGas;
 }
 
 function deploymentErrorMessage(error: unknown): string {

@@ -46,10 +46,14 @@ export function printTable(
   console.log(caption.join("  "));
 }
 
-export function renderProgress(completed: number, total: number): void {
+export function renderProgress(
+  completed: number,
+  total: number,
+  label = "Checking deployments"
+): void {
   if (!process.stderr.isTTY) return;
   cursorTo(process.stderr, 0);
-  process.stderr.write(`Checking deployments: ${completed}/${total} requests`);
+  process.stderr.write(`${label}: ${completed}/${total} requests`);
 }
 
 export function clearProgress(): void {

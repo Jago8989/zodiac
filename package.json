@@ -27,9 +27,11 @@
     "build": "yarn clean && tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json",
     "postbuild": "node postbuild.mjs",
     "cli": "tsx src/cli.ts",
+    "extract": "tsx src/cli.ts extract",
     "deploy": "tsx src/cli.ts deploy",
     "deploy:list": "tsx src/cli.ts deploy list",
-    "extract": "tsx src/cli.ts extract",
+    "verify": "tsx src/cli.ts verify",
+    "verify:list": "tsx src/cli.ts verify list",
     "format": "prettier --write ./src/**/*.ts ./commands/**/*.ts",
     "release": "yarn build && yarn publish --access public"
   },

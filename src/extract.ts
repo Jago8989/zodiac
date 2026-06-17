@@ -129,6 +129,7 @@ async function extractOne({
       contractName: source.contractName,
       sourceName: source.sourceName,
       compilerVersion: source.compilerVersion,
+      constructorArguments: source.constructorArguments,
       input: source.compilerInput,
     },
     bytecode: {

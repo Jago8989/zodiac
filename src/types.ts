@@ -9,6 +9,8 @@ export interface SourceCodeFile {
   contractName: string;
   sourceName: string;
   compilerVersion: string;
+  /** abi-encoded constructor arguments (hex, no leading 0x). */
+  constructorArguments?: string;
   /** Solidity standard-JSON compiler input (verified source + settings). */
   input: any;
 }

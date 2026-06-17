@@ -26,6 +26,18 @@ export interface ContractCreation {
   creationBytecode?: string;
 }
 
+export interface VerificationRequest {
+  address: string;
+  network: string | number;
+  sourceCode: string;
+  contractName: string;
+  compilerVersion: string;
+  constructorArguments?: string;
+  evmVersion?: string;
+  licenseType?: string;
+  apiKey?: string;
+}
+
 interface ExplorerEntry {
   SourceCode: string;
   ContractName: string;
@@ -166,6 +178,47 @@ async function explorerGet<T = any>(
     return explorerGet(networkOrChainId, params, apiKey, attempt + 1);
   }
   return body;
+}
+
+async function explorerPost<T = any>(
+  networkOrChainId: string | number,
+  params: Record<string, string>,
+  apiKey?: string,
+  attempt = 0
+): Promise<ExplorerResponse<T>> {
+  const network = resolveNetwork(networkOrChainId);
+  if (!network.etherscanApiUrl) {
+    throw new Error(
+      `${network.name} (chain ${network.chainId}) is not supported by Etherscan V2.`
+    );
+  }
+
+  const body = new URLSearchParams();
+  body.set("apikey", resolveApiKey(network.name, apiKey));
+  for (const [key, value] of new URL(network.etherscanApiUrl).searchParams) {
+    body.set(key, value);
+  }
+  for (const [key, value] of Object.entries(params)) {
+    body.set(key, value);
+  }
+
+  const response = await fetch(network.etherscanApiUrl, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+    },
+    body,
+  });
+  if (!response.ok) {
+    throw new Error(`Explorer request failed: ${response.status}`);
+  }
+
+  const responseBody = (await response.json()) as ExplorerResponse<T>;
+  if (isRateLimited(responseBody) && attempt < 5) {
+    await sleep(1000 * (attempt + 1));
+    return explorerPost(networkOrChainId, params, apiKey, attempt + 1);
+  }
+  return responseBody;
 }
 
 /**
@@ -315,4 +368,78 @@ export async function getCode({
   );
 
   return (result as string) ?? "0x";
+}
+
+/**
+ * Submit standard-JSON Solidity source for verification.
+ */
+export async function verifySourceCode({
+  address,
+  network,
+  sourceCode,
+  contractName,
+  compilerVersion,
+  constructorArguments = "",
+  evmVersion = "default",
+  licenseType = "1",
+  apiKey,
+}: VerificationRequest): Promise<string> {
+  const { status, message, result } = await explorerPost<string>(
+    network,
+    {
+      module: "contract",
+      action: "verifysourcecode",
+      contractaddress: address,
+      sourceCode,
+      codeformat: "solidity-standard-json-input",
+      contractname: contractName,
+      compilerversion: compilerVersion,
+      optimizationUsed: "0",
+      runs: "200",
+      constructorArguments,
+      evmVersion,
+      licenseType,
+    },
+    apiKey
+  );
+
+  if (!isOk(status)) {
+    if (
+      typeof result === "string" &&
+      result.toLowerCase().includes("already")
+    ) {
+      return result;
+    }
+    throw new Error(`${message}${result ? ` (${result})` : ""}`);
+  }
+  return result;
+}
+
+/**
+ * Check the async source verification status for a submitted GUID.
+ */
+export async function checkVerificationStatus({
+  guid,
+  network,
+  apiKey,
+}: {
+  guid: string;
+  network: string | number;
+  apiKey?: string;
+}): Promise<string> {
+  const { status, message, result } = await explorerPost<string>(
+    network,
+    {
+      module: "contract",
+      action: "checkverifystatus",
+      guid,
+    },
+    apiKey
+  );
+
+  if (!isOk(status)) {
+    if (typeof result === "string" && result) return result;
+    throw new Error(`${message}${result ? ` (${result})` : ""}`);
+  }
+  return result;
 }

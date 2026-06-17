@@ -44,7 +44,7 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@gnosis-guild/zodiac-core": "file:../zodiac-core",
+    "@gnosis-guild/zodiac-core": "4.0.1",
     "dotenv": "^16.0.3",
     "ethers": "^6.9.2"
   },

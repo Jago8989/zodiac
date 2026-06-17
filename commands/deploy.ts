@@ -268,9 +268,15 @@ async function deployTarget({
         throw new Error(`factory ${asset.bytecode.factory} is not deployed`);
       }
 
+      const data = deploymentData(asset.bytecode);
+      const estimatedGas = await provider.estimateGas({
+        to: asset.bytecode.factory,
+        data,
+      });
       const tx = await signer.sendTransaction({
         to: asset.bytecode.factory,
-        data: deploymentData(asset.bytecode),
+        data,
+        gasLimit: addGasBuffer(estimatedGas),
       });
       const receipt = await tx.wait();
       if (!receipt || receipt.status !== 1) {
@@ -399,6 +405,10 @@ function deploymentData(bytecode: BytecodeFile): string {
   }
 
   throw new Error(`unsupported singleton factory ${bytecode.factory}`);
+}
+
+function addGasBuffer(estimatedGas: bigint): bigint {
+  return (estimatedGas * 120n) / 100n;
 }
 
 function deploymentErrorMessage(error: unknown): string {

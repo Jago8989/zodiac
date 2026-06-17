@@ -7,7 +7,11 @@ import { runExtract } from "../commands/extract.js";
 const USAGE = `zodiac — mastercopy artifact tooling
 
 Usage:
-  zodiac deploy list <name>
+  zodiac deploy <name> [version]
+      Deploy missing local mastercopy artifacts for each canonical version of a
+      known contract across configured networks.
+
+  zodiac deploy list <name> [version]
       Check whether each canonical version of a known contract is already
       deployed on each configured network.
 
@@ -22,6 +26,7 @@ Usage:
 
 Environment:
   INFURA_KEY                      enables Infura RPC endpoints
+  MNEMONIC                        signer used by deploy
   ETHERSCAN_API_KEY[_<NETWORK>]   explorer API key(s)
 `;
 

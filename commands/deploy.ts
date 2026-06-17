@@ -1,10 +1,22 @@
+import { existsSync, readdirSync, readFileSync } from "fs";
+import path from "path";
 import { clearLine, cursorTo } from "readline";
 
+import { Interface, JsonRpcProvider, Wallet, getAddress } from "ethers";
+
 import { CanonicalAddresses, KnownContracts } from "../src/contracts.js";
+import { defaultMastercopiesDir } from "../src/mastercopies.js";
 import { NetworkConfig, networks } from "../src/networks.js";
+import { ERC2470_FACTORY, NICK_FACTORY } from "../src/singleton.js";
+import { BytecodeFile } from "../src/types.js";
 
 interface DeploymentCell {
   label: string;
+}
+
+interface DeployableAsset {
+  name: string;
+  bytecode: BytecodeFile;
 }
 
 const knownContractNames = Object.values(KnownContracts);
@@ -12,36 +24,84 @@ const CHECK = "✓";
 const CROSS = "✗";
 const QUESTION = "?";
 
+const erc2470Interface = new Interface([
+  "function deploy(bytes _initCode, bytes32 _salt) returns (address)",
+]);
+
 /**
- * CLI entry for `zodiac deploy list <name>`.
- * Prints one row per known network and one column per canonical version.
+ * CLI entry for:
+ *
+ *   zodiac deploy <name> [version]
+ *   zodiac deploy list <name> [version]
  */
 export async function runDeploy(args: string[]): Promise<void> {
-  const [subcommand, name] = args;
+  const [subcommand, name, version] = args;
 
   switch (subcommand) {
     case "list": {
       if (!name) {
-        throw new Error("Usage: zodiac deploy list <name>");
+        throw new Error("Usage: zodiac deploy list <name> [version]");
       }
-      await listDeployments(name);
+      await listDeployments(name, version);
       break;
     }
     case undefined:
-      throw new Error("Usage: zodiac deploy list <name>");
+      throw new Error(
+        "Usage: zodiac deploy <name> [version] | zodiac deploy list <name> [version]"
+      );
     default:
-      throw new Error(`Unknown deploy command "${subcommand}".`);
+      await deployKnown(subcommand, name);
   }
 }
 
-async function listDeployments(name: string): Promise<void> {
+async function deployKnown(name: string, version?: string): Promise<void> {
   const contractName = resolveName(name);
   const versions = CanonicalAddresses[contractName] || {};
-  const versionKeys = Object.keys(versions);
+  const versionKeys = resolveVersions(contractName, versions, version);
 
-  if (versionKeys.length === 0) {
-    throw new Error(`No versions on record for ${contractName}.`);
+  const total = networks.length * versionKeys.length;
+  let completed = 0;
+  const rows: { network: string; cells: DeploymentCell[] }[] = [];
+
+  renderProgress(completed, total);
+  for (const network of networks) {
+    const cells: DeploymentCell[] = [];
+
+    for (const version of versionKeys) {
+      const address = versions[version as keyof typeof versions];
+      const result = address
+        ? await deployTarget({
+            contractName,
+            version,
+            network,
+            address,
+          })
+        : await failedDeployment({
+            contractName,
+            version,
+            network,
+            reason: "no address on record",
+          });
+
+      cells.push(result);
+      completed += 1;
+      renderProgress(completed, total);
+    }
+
+    rows.push({ network: network.name, cells });
   }
+
+  clearProgress();
+  printTable(["network", ...versionKeys], rows, [
+    `${color(CHECK, "green")} deployed`,
+    `${color(CROSS, "red")} failed deployment`,
+  ]);
+}
+
+async function listDeployments(name: string, version?: string): Promise<void> {
+  const contractName = resolveName(name);
+  const versions = CanonicalAddresses[contractName] || {};
+  const versionKeys = resolveVersions(contractName, versions, version);
 
   const requestVersions = versionKeys.filter((version) => {
     const address = versions[version as keyof typeof versions];
@@ -72,7 +132,11 @@ async function listDeployments(name: string): Promise<void> {
 
   if (total > 0) clearProgress();
 
-  printTable(["network", ...versionKeys], rows);
+  printTable(["network", ...versionKeys], rows, [
+    `${color(CHECK, "green")} deployed`,
+    `${color(CROSS, "red")} not deployed`,
+    `${color(QUESTION, "yellow")} couldn't get status`,
+  ]);
 }
 
 function resolveName(name: string): KnownContracts {
@@ -89,6 +153,28 @@ function resolveName(name: string): KnownContracts {
   return matched;
 }
 
+function resolveVersions(
+  contractName: KnownContracts,
+  versions: Record<string, string>,
+  version?: string
+): string[] {
+  const keys = Object.keys(versions);
+  if (keys.length === 0) {
+    throw new Error(`No versions on record for ${contractName}.`);
+  }
+
+  if (version === undefined) return keys;
+
+  if (!keys.includes(version)) {
+    throw new Error(
+      `Unknown version "${version}" for ${contractName}. Known versions: ${keys.join(
+        ", "
+      )}`
+    );
+  }
+  return [version];
+}
+
 async function checkDeployment(
   network: NetworkConfig,
   address: string
@@ -102,6 +188,130 @@ async function checkDeployment(
   } catch {
     return errorCell();
   }
+}
+
+async function deployTarget({
+  contractName,
+  version,
+  network,
+  address,
+}: {
+  contractName: KnownContracts;
+  version: string;
+  network: NetworkConfig;
+  address: string;
+}): Promise<DeploymentCell> {
+  const rpcUrl = rpcUrlFor(network);
+  if (!rpcUrl) {
+    return failedDeployment({
+      contractName,
+      version,
+      network,
+      reason: "no usable RPC",
+    });
+  }
+
+  try {
+    const currentCode = await getCode(rpcUrl, address);
+    if (currentCode !== "0x") return deployedCell();
+  } catch {
+    return failedDeployment({
+      contractName,
+      version,
+      network,
+      reason: "couldn't get status",
+    });
+  }
+
+  const assets = loadDeployableAssets({ contractName, version, address });
+  if (assets.length === 0) {
+    return failedDeployment({
+      contractName,
+      version,
+      network,
+      reason: "no local deployable artifact",
+    });
+  }
+
+  const mnemonic = process.env.MNEMONIC;
+  if (!mnemonic) {
+    return failedDeployment({
+      contractName,
+      version,
+      network,
+      reason: "missing MNEMONIC",
+    });
+  }
+
+  showTransient(`Deploying ${contractName}@${version} to ${network.name}...`);
+
+  const provider = new JsonRpcProvider(rpcUrl, network.chainId, {
+    staticNetwork: true,
+  });
+  const signer = Wallet.fromPhrase(mnemonic, provider);
+
+  try {
+    for (const asset of assets) {
+      const assetCode = await provider.getCode(asset.bytecode.address);
+      if (assetCode !== "0x") continue;
+
+      const factoryCode = await provider.getCode(asset.bytecode.factory);
+      if (factoryCode === "0x") {
+        throw new Error(`factory ${asset.bytecode.factory} is not deployed`);
+      }
+
+      const tx = await signer.sendTransaction({
+        to: asset.bytecode.factory,
+        data: deploymentData(asset.bytecode),
+      });
+      await tx.wait();
+
+      const deployedCode = await provider.getCode(asset.bytecode.address);
+      if (deployedCode === "0x") {
+        throw new Error(`${asset.name} deployment produced no code`);
+      }
+    }
+
+    const finalCode = await provider.getCode(address);
+    if (finalCode === "0x") {
+      throw new Error("canonical address is still empty");
+    }
+
+    printStatusLine(
+      `${color(CHECK, "green")} ${contractName}@${version} deployed to ${
+        network.name
+      }: ${address}`
+    );
+    return deployedCell();
+  } catch (error) {
+    printStatusLine(
+      `${color(CROSS, "red")} ${contractName}@${version} failed on ${
+        network.name
+      }: ${deploymentErrorMessage(error)}`
+    );
+    return failedCell();
+  } finally {
+    provider.destroy();
+  }
+}
+
+async function failedDeployment({
+  contractName,
+  version,
+  network,
+  reason,
+}: {
+  contractName: KnownContracts;
+  version: string;
+  network: NetworkConfig;
+  reason: string;
+}): Promise<DeploymentCell> {
+  printStatusLine(
+    `${color(CROSS, "red")} ${contractName}@${version} failed on ${
+      network.name
+    }: ${reason}`
+  );
+  return failedCell();
 }
 
 function rpcUrlFor(network: NetworkConfig): string | null {
@@ -121,6 +331,101 @@ function missingCell(): DeploymentCell {
 
 function errorCell(): DeploymentCell {
   return { label: color(QUESTION, "yellow") };
+}
+
+function failedCell(): DeploymentCell {
+  return { label: color(CROSS, "red") };
+}
+
+function loadDeployableAssets({
+  contractName,
+  version,
+  address,
+}: {
+  contractName: KnownContracts;
+  version: string;
+  address: string;
+}): DeployableAsset[] {
+  const dir = path.join(defaultMastercopiesDir(), contractName, version);
+  if (!existsSync(dir)) return [];
+
+  const assets = readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => {
+      const bytecodePath = path.join(dir, entry.name, "bytecode.json");
+      if (!existsSync(bytecodePath)) return undefined;
+
+      const bytecode = JSON.parse(
+        readFileSync(bytecodePath, "utf8")
+      ) as BytecodeFile;
+      return { name: entry.name, bytecode };
+    })
+    .filter((asset): asset is DeployableAsset => asset !== undefined);
+
+  const normalizedAddress = getAddress(address);
+  return assets.sort((a, b) => {
+    const aIsMain = getAddress(a.bytecode.address) === normalizedAddress;
+    const bIsMain = getAddress(b.bytecode.address) === normalizedAddress;
+    if (aIsMain === bIsMain) return a.name.localeCompare(b.name);
+    return aIsMain ? 1 : -1;
+  });
+}
+
+function deploymentData(bytecode: BytecodeFile): string {
+  const factory = getAddress(bytecode.factory);
+
+  if (factory === getAddress(ERC2470_FACTORY)) {
+    return erc2470Interface.encodeFunctionData("deploy", [
+      bytecode.creationBytecode,
+      bytecode.salt,
+    ]);
+  }
+
+  if (factory === getAddress(NICK_FACTORY)) {
+    return `${bytecode.salt}${bytecode.creationBytecode.slice(2)}`;
+  }
+
+  throw new Error(`unsupported singleton factory ${bytecode.factory}`);
+}
+
+function deploymentErrorMessage(error: unknown): string {
+  if (isInsufficientFundsError(error)) return "insufficient funds";
+  return (error as Error)?.message || String(error);
+}
+
+function isInsufficientFundsError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+
+  const maybeError = error as {
+    code?: unknown;
+    message?: unknown;
+    shortMessage?: unknown;
+    cause?: unknown;
+    error?: unknown;
+  };
+  const message = `${maybeError.message ?? ""} ${
+    maybeError.shortMessage ?? ""
+  }`.toLowerCase();
+
+  return (
+    maybeError.code === "INSUFFICIENT_FUNDS" ||
+    message.includes("insufficient funds") ||
+    message.includes("not enough funds") ||
+    isInsufficientFundsError(maybeError.cause) ||
+    isInsufficientFundsError(maybeError.error)
+  );
+}
+
+function printStatusLine(message: string): void {
+  clearProgress();
+  console.log(message);
+}
+
+function showTransient(message: string): void {
+  if (!process.stderr.isTTY) return;
+  clearProgress();
+  cursorTo(process.stderr, 0);
+  process.stderr.write(message);
 }
 
 async function getCode(rpcUrl: string, address: string): Promise<string> {
@@ -159,7 +464,8 @@ async function getCode(rpcUrl: string, address: string): Promise<string> {
 
 function printTable(
   headers: string[],
-  rows: { network: string; cells: DeploymentCell[] }[]
+  rows: { network: string; cells: DeploymentCell[] }[],
+  caption: string[]
 ): void {
   const body = rows.map((row) => [
     row.network,
@@ -175,12 +481,7 @@ function printTable(
     console.log(formatRow(row, widths));
   }
   console.log();
-  console.log(
-    `${color(CHECK, "green")} deployed  ${color(
-      CROSS,
-      "red"
-    )} not deployed  ${color(QUESTION, "yellow")} couldn't get status`
-  );
+  console.log(caption.join("  "));
 }
 
 function formatRow(row: string[], widths: number[]): string {

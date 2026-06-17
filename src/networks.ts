@@ -24,11 +24,11 @@ const ETHERSCAN_V2_API = "https://api.etherscan.io/v2/api";
 const infuraKey = process.env.INFURA_KEY ?? "";
 
 const ETHERSCAN_V2_CHAIN_IDS = new Set([
-  1, 10, 50, 51, 56, 97, 100, 130, 143, 146, 199, 204, 252, 480, 988, 999, 1029,
-  1284, 1285, 1287, 1301, 1328, 1329, 2201, 2523, 2741, 4326, 4352, 5000, 5003,
-  5611, 6343, 8453, 9745, 9746, 10143, 11124, 33111, 33139, 42161, 42220, 43113,
-  43114, 43522, 59141, 59144, 80002, 80069, 80094, 81457, 84532, 167000, 167013,
-  560048, 737373, 747474, 421614, 11142220, 11155111, 11155420, 168587773,
+  1, 10, 50, 51, 56, 100, 130, 143, 146, 199, 204, 252, 480, 988, 999, 1029,
+  1284, 1285, 1287, 1328, 1329, 2201, 2523, 2741, 4326, 4352, 5000, 5611, 6343,
+  8453, 9745, 9746, 10143, 11124, 33111, 33139, 42161, 42220, 43114, 43522,
+  59141, 59144, 80069, 80094, 81457, 167000, 167013, 560048, 737373, 747474,
+  11155111, 168587773,
 ]);
 
 /** Build an Infura RPC URL from its endpoint subdomain. */
@@ -82,13 +82,6 @@ export const networks: NetworkConfig[] = [
     etherscanApiUrl: etherscanV2(56),
   },
   {
-    name: "bnbTestnet",
-    chainId: 97,
-    infuraRpcUrl: infura("bsc-testnet"),
-    publicRpc: null,
-    etherscanApiUrl: etherscanV2(97),
-  },
-  {
     name: "gnosis",
     chainId: 100,
     infuraRpcUrl: null,
@@ -131,13 +124,6 @@ export const networks: NetworkConfig[] = [
     etherscanApiUrl: etherscanV2(999),
   },
   {
-    name: "unichainSepolia",
-    chainId: 1301,
-    infuraRpcUrl: infura("unichain-sepolia"),
-    publicRpc: null,
-    etherscanApiUrl: etherscanV2(1301),
-  },
-  {
     name: "megaeth",
     chainId: 4326,
     infuraRpcUrl: infura("megaeth-mainnet"),
@@ -150,13 +136,6 @@ export const networks: NetworkConfig[] = [
     infuraRpcUrl: infura("mantle-mainnet"),
     publicRpc: null,
     etherscanApiUrl: etherscanV2(5000),
-  },
-  {
-    name: "mantleSepolia",
-    chainId: 5003,
-    infuraRpcUrl: infura("mantle-sepolia"),
-    publicRpc: null,
-    etherscanApiUrl: etherscanV2(5003),
   },
   {
     name: "base",
@@ -173,13 +152,6 @@ export const networks: NetworkConfig[] = [
     etherscanApiUrl: etherscanV2(9745),
   },
   {
-    name: "chiado",
-    chainId: 10200,
-    infuraRpcUrl: null,
-    publicRpc: "https://rpc.chiadochain.net",
-    etherscanApiUrl: null,
-  },
-  {
     name: "arbitrum",
     chainId: 42161,
     infuraRpcUrl: infura("arbitrum-mainnet"),
@@ -194,25 +166,11 @@ export const networks: NetworkConfig[] = [
     etherscanApiUrl: etherscanV2(42220),
   },
   {
-    name: "avalancheFuji",
-    chainId: 43113,
-    infuraRpcUrl: infura("avalanche-fuji"),
-    publicRpc: null,
-    etherscanApiUrl: etherscanV2(43113),
-  },
-  {
     name: "avalanche",
     chainId: 43114,
     infuraRpcUrl: infura("avalanche-mainnet"),
     publicRpc: null,
     etherscanApiUrl: etherscanV2(43114),
-  },
-  {
-    name: "celoAlfajores",
-    chainId: 44787,
-    infuraRpcUrl: null,
-    publicRpc: "https://alfajores-forno.celo-testnet.org",
-    etherscanApiUrl: null,
   },
   {
     name: "ink",
@@ -243,39 +201,11 @@ export const networks: NetworkConfig[] = [
     etherscanApiUrl: null,
   },
   {
-    name: "polygonAmoy",
-    chainId: 80002,
-    infuraRpcUrl: infura("polygon-amoy"),
-    publicRpc: null,
-    etherscanApiUrl: etherscanV2(80002),
-  },
-  {
     name: "berachain",
     chainId: 80094,
     infuraRpcUrl: null,
     publicRpc: "https://rpc.berachain.com",
     etherscanApiUrl: etherscanV2(80094),
-  },
-  {
-    name: "baseSepolia",
-    chainId: 84532,
-    infuraRpcUrl: infura("base-sepolia"),
-    publicRpc: null,
-    etherscanApiUrl: etherscanV2(84532),
-  },
-  {
-    name: "arbitrumSepolia",
-    chainId: 421614,
-    infuraRpcUrl: infura("arbitrum-sepolia"),
-    publicRpc: null,
-    etherscanApiUrl: etherscanV2(421614),
-  },
-  {
-    name: "scrollSepolia",
-    chainId: 534351,
-    infuraRpcUrl: infura("scroll-sepolia"),
-    publicRpc: null,
-    etherscanApiUrl: null,
   },
   {
     name: "scroll",
@@ -292,25 +222,11 @@ export const networks: NetworkConfig[] = [
     etherscanApiUrl: etherscanV2(747474),
   },
   {
-    name: "celoSepolia",
-    chainId: 11142220,
-    infuraRpcUrl: infura("celo-sepolia"),
-    publicRpc: null,
-    etherscanApiUrl: etherscanV2(11142220),
-  },
-  {
     name: "sepolia",
     chainId: 11155111,
     infuraRpcUrl: infura("sepolia"),
     publicRpc: null,
     etherscanApiUrl: etherscanV2(11155111),
-  },
-  {
-    name: "optimismSepolia",
-    chainId: 11155420,
-    infuraRpcUrl: infura("optimism-sepolia"),
-    publicRpc: null,
-    etherscanApiUrl: etherscanV2(11155420),
   },
 ];
 

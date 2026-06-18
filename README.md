@@ -29,7 +29,7 @@ The Zodiac open standard consists of Avatars, Modules, Modifiers, and Guards arc
 
 ## Overview
 
-This repository contains the Zodiac mastercopy tooling: a CLI and TypeScript SDK to extract deployed mastercopies (sources, ABI and bytecode) from block explorers into a versioned `deploy-data/` folder, plus a registry of known Zodiac contracts and their canonical addresses.
+This repository contains the Zodiac mastercopy tooling: a CLI and TypeScript SDK to extract deployed mastercopies (sources, ABI and bytecode) from block explorers into a versioned `mastercopies/` folder, plus a registry of known Zodiac contracts and their canonical addresses.
 
 The Zodiac core contracts (`Module.sol`, `Modifier.sol`, `BaseGuard.sol`, `ModuleProxyFactory.sol`, etc.), along with their tests and audits, live in [zodiac-core](https://github.com/gnosisguild/zodiac-core). If you are building a module, modifier, or guard, use the `@gnosis-guild/zodiac-core` package.
 
@@ -54,15 +54,57 @@ contract MyModule is Module {
 
 ```
 
-### Mastercopy deploy-data
+### Mastercopies
 
-This package has no build step. It publishes data: the known-contract address
-registry plus a versioned `deploy-data/` folder of extracted mastercopy
-artifacts (versions, addresses, ABIs, bytecode, sources).
+The npm package publishes a small TypeScript SDK: the known-contract registry,
+canonical mastercopy addresses, the supported-network list, and per-version
+ABIs. The versioned `mastercopies/` folder (the extracted source, ABI and
+bytecode artifacts) is repo-maintenance data and is **not** published to npm —
+neither are the maintenance `commands/`.
 
-To populate `deploy-data/`, run the extract tool (via `ts-node`, no build). It
-is driven by the known-contract registry — addresses come from
-`CanonicalAddresses`, so you pass a name/version, not an address:
+```ts
+import { Contract } from "ethers";
+import {
+  getZodiacModuleAbi, // helper to get a specific ABI by name and version
+  KnownContracts, // enum of known Zodiac contract names
+  CanonicalAddresses, // canonical mastercopy addresses, by name@version
+  SupportedNetworks, // chain name -> chainId
+} from "@gnosis-guild/zodiac";
+
+// To interact with a specific version of a Zodiac module:
+const delayModule = new Contract(
+  address,
+  getZodiacModuleAbi(KnownContracts.DELAY, "1.1.1"),
+  provider
+);
+```
+
+The package also re-exports the modern encoding and prediction helpers from
+[`@gnosis-guild/zodiac-core`](https://github.com/gnosisguild/zodiac-core). These
+functions are the recommended way to handle deployments in the v5 paradigm,
+replacing the legacy `deployAndSetUpModule` helper:
+
+- `encodeDeployProxy`: generate payload for the Zodiac factory.
+- `predictProxyAddress`: predict the address of a proxy before deployment.
+- `encodeDeploySingleton`: generate payload for singleton factories.
+- `predictSingletonAddress`: predict the address of a singleton.
+
+#### Maintenance CLI
+
+The `mastercopies/` artifacts are produced and managed with a CLI that runs the
+TypeScript source locally via `tsx` (no build needed). Every command is driven
+by the known-contract registry — you pass a name/version, not an address, and
+unknown names/versions error out.
+
+```bash
+yarn extract [name] [version] [network] [--force]   # explorer -> mastercopies/
+yarn deploy  <name> [version]                        # deploy missing artifacts on each network
+yarn deploy:list <name> [version]                    # report per-network deployment status
+yarn verify  <name> [version]                        # verify deployed artifacts on each explorer
+yarn verify:list <name> [version]                    # report per-network verification status
+```
+
+**`extract`** captures mastercopy artifacts into `mastercopies/`:
 
 ```bash
 yarn extract [name] [version] [network] [--force]
@@ -72,27 +114,39 @@ yarn extract [name] [version] [network] [--force]
 ```
 
 Existing folders are skipped unless `--force` is passed, which removes and
-regenerates them. `name`/`version` are validated against the registry (unknown
-ones error out). Source is read from `[network]` or, by default, mainnet then
-gnosis. It writes one folder per asset (the main contract and each linked
+regenerates them. Source is read from `[network]` or, by default, the default
+explorer set. It works entirely through the explorer: it fetches the verified
+source and recovers the exact init code and salt from the deployment
+transaction, so a contract can later reproduce at the same address on every
+chain. Linked libraries are discovered from the compiler input and extracted
+recursively. One folder is written per asset (the main contract and each linked
 library):
 
 ```
-deploy-data/<module>/<version>/<asset>/abi.json
-deploy-data/<module>/<version>/<asset>/sourcecode.json   # standard-JSON compiler input
-deploy-data/<module>/<version>/<asset>/bytecode.json     # address, factory, salt, creationBytecode
+mastercopies/<module>/<version>/<asset>/abi.json
+mastercopies/<module>/<version>/<asset>/sourcecode.json   # standard-JSON compiler input
+mastercopies/<module>/<version>/<asset>/bytecode.json     # address, factory, salt, creationBytecode
 ```
 
-`extract` works entirely through the explorer: it fetches the verified source
-and recovers the exact init code and salt from the deployment transaction, so a
-contract can later reproduce at the same address on every chain. Linked
-libraries are discovered from the compiler input and extracted recursively.
-Configure `ETHERSCAN_API_KEY` in your env — see `.env.sample`.
+**`deploy`** redeploys those artifacts to their canonical addresses on each
+configured network (via the ERC-2470 / Nick CREATE2 singleton factories),
+skipping any that already exist; **`verify`** submits the bundled source to each
+configured Etherscan V2 explorer. The `list` subcommands report status without
+making changes.
 
-> Deploying/verifying from `deploy-data/` is a planned follow-up. The legacy
-> bundled-ABI SDK (`MasterCopyInitData`, `ContractFactories`,
+#### Environment
+
+Configure these in your env — see `.env.sample`:
+
+- `ETHERSCAN_API_KEY` — Etherscan V2 key (works across all supported chains).
+  Override per network with `ETHERSCAN_API_KEY_<NETWORK>`. Used by `extract` and
+  `verify`.
+- `ALCHEMY_KEY` / `INFURA_KEY` — used to build RPC endpoints.
+- `MNEMONIC` — signer used by `deploy`.
+
+> The legacy bundled-ABI SDK (`MasterCopyInitData`, `ContractFactories`,
 > `deployAndSetUpModule`, …) was removed in v5; the known-contracts and
-> canonical-address registry (`KnownContracts`, `ContractAddresses`) is kept.
+> canonical-address registry (`KnownContracts`, `CanonicalAddresses`) is kept.
 
 ### Zodiac compliant tools
 

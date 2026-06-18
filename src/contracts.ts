@@ -1,3 +1,5 @@
+import { networks } from "./networks.js";
+
 /**
  * Known Zodiac contracts and their canonical mastercopy addresses.
  *
@@ -22,12 +24,45 @@ export enum KnownContracts {
   SCOPE_GUARD = "scopeGuard",
   FACTORY = "factory",
   ROLES = "roles",
+  ROLES_V1 = "roles",
+  ROLES_V2 = "roles",
   OZ_GOVERNOR = "ozGovernor",
   ERC20_VOTES = "erc20Votes",
   ERC721_VOTES = "erc721Votes",
   MULTISEND_ENCODER = "multisendEncoder",
   CONNEXT = "connext",
 }
+
+export const SupportedNetworks = Object.freeze({
+  MAINNET: 1,
+  OPTIMISM: 10,
+  FLARE: 14,
+  BSC: 56,
+  BNB: 56,
+  GNOSIS: 100,
+  UNICHAIN: 130,
+  POLYGON: 137,
+  SONIC: 146,
+  WORLDCHAIN: 480,
+  HYPEREVM: 999,
+  MEGAETH: 4326,
+  MANTLE: 5000,
+  BASE: 8453,
+  PLASMA: 9745,
+  ARBITRUM: 42161,
+  CELO: 42220,
+  AVALANCHE: 43114,
+  INK: 57073,
+  LINEA: 59144,
+  BOB: 60808,
+  BERACHAIN: 80094,
+  SCROLL: 534352,
+  KATANA: 747474,
+  SEPOLIA: 11155111,
+} as const);
+
+export type SupportedNetworks =
+  (typeof SupportedNetworks)[keyof typeof SupportedNetworks];
 
 /** Canonical mastercopy address for each known contract, by version. */
 export const CanonicalAddresses: Record<
@@ -107,3 +142,30 @@ export const CanonicalAddresses: Record<
     "1.0.0": "0x7dE07b9De0bf0FABf31A188DE1527034b2aF36dB",
   },
 };
+
+const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
+
+function latestAddress(contract: KnownContracts): string {
+  const versions = CanonicalAddresses[contract] || {};
+  const latest = Object.entries(versions)
+    .filter(([_, address]) => address)
+    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
+    .pop();
+
+  return latest ? latest[1] : ZERO_ADDRESS;
+}
+
+export const ContractAddresses: Record<
+  SupportedNetworks,
+  Record<KnownContracts, string>
+> = Object.fromEntries(
+  networks.map(({ chainId }) => [
+    chainId,
+    Object.fromEntries(
+      Object.values(KnownContracts).map((contract) => [
+        contract,
+        latestAddress(contract),
+      ])
+    ),
+  ])
+) as Record<SupportedNetworks, Record<KnownContracts, string>>;

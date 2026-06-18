@@ -4,6 +4,7 @@ import path from "path";
 import { CanonicalAddresses, KnownContracts } from "../src/contracts.js";
 import { defaultMastercopiesDir, writeAsset } from "../src/mastercopies.js";
 import { extract } from "../src/extract.js";
+import { writeAbis } from "./write-abis.js";
 
 /** Networks tried, in order, when none is specified. */
 const DEFAULT_NETWORKS = ["mainnet", "gnosis", "arbitrum", "optimism", "base"];
@@ -77,6 +78,9 @@ export async function extractKnown({
       });
     }
   }
+
+  writeAbis({ mastercopiesDir });
+  console.log("  ✔ ABI exports updated");
 }
 
 /** Validate and resolve the contract name(s) to process. */

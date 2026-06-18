@@ -144,7 +144,11 @@ Configure these in your env — see `.env.sample`:
   Override per network with `ETHERSCAN_API_KEY_<NETWORK>`. Used by `extract` and
   `verify`.
 - `ALCHEMY_KEY` / `INFURA_KEY` — used to build RPC endpoints.
-- `MNEMONIC` — signer used by `deploy`.
+- `MNEMONIC` — signer used by `deploy` (local signing, the default).
+- `DEPLOY_VIA_FRAME` — set to a truthy value (`1`/`true`/`yes`/`on`) to sign
+  `deploy` transactions through a locally running [Frame](https://frame.sh)
+  wallet instead of `MNEMONIC` (e.g. to use a hardware wallet). When enabled,
+  Frame must be running and `MNEMONIC` is ignored.
 
 > The legacy bundled-ABI SDK (`MasterCopyInitData`, `ContractFactories`,
 > `deployAndSetUpModule`, …) was removed in v5; the known-contracts and

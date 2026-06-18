@@ -1,7 +1,27 @@
 import { existsSync, readdirSync, readFileSync } from "fs";
 import path from "path";
 
-import { Interface, JsonRpcProvider, Wallet, getAddress } from "ethers";
+import {
+  BrowserProvider,
+  type Eip1193Provider,
+  Interface,
+  JsonRpcProvider,
+  type Signer,
+  Wallet,
+  getAddress,
+} from "ethers";
+import ethProviderImport from "eth-provider";
+
+type FrameProvider = Eip1193Provider & {
+  setChain: (chainId: string | number) => void;
+  close: () => void;
+};
+
+// eth-provider ships a CommonJS default export; the cast normalizes the call
+// signature across module-interop quirks.
+const connectProvider = ethProviderImport as unknown as (
+  targets?: string | string[]
+) => FrameProvider;
 
 import { CanonicalAddresses, KnownContracts } from "../src/contracts.js";
 import { defaultMastercopiesDir } from "../src/mastercopies.js";
@@ -31,6 +51,19 @@ interface DeployableAsset {
 }
 
 const knownContractNames = Object.values(KnownContracts);
+
+/**
+ * When DEPLOY_VIA_FRAME is truthy, deployments are signed through a locally
+ * running Frame (https://frame.sh) wallet instead of a MNEMONIC. Frame prompts
+ * for each transaction and lets you use a hardware wallet / Ledger.
+ */
+const useFrame = isTruthy(process.env.DEPLOY_VIA_FRAME);
+
+function isTruthy(value: string | undefined): boolean {
+  return value !== undefined && ["1", "true", "yes", "on"].includes(
+    value.toLowerCase()
+  );
+}
 
 const erc2470Interface = new Interface([
   "function deploy(bytes _initCode, bytes32 _salt) returns (address)",
@@ -241,8 +274,7 @@ async function deployTarget({
     });
   }
 
-  const mnemonic = process.env.MNEMONIC;
-  if (!mnemonic) {
+  if (!useFrame && !process.env.MNEMONIC) {
     return failedDeployment({
       contractName,
       version,
@@ -251,12 +283,31 @@ async function deployTarget({
     });
   }
 
-  showTransient(`Deploying ${contractName}@${version} to ${network.name}...`);
+  showTransient(
+    `Deploying ${contractName}@${version} to ${network.name}${
+      useFrame ? " via Frame" : ""
+    }...`
+  );
 
   const provider = new JsonRpcProvider(rpcUrl, network.chainId, {
     staticNetwork: true,
   });
-  const signer = Wallet.fromPhrase(mnemonic, provider);
+
+  let signer: Signer;
+  let disposeSigner: (() => void) | undefined;
+  try {
+    ({ signer, dispose: disposeSigner } = await createSigner(network, provider));
+  } catch (error) {
+    provider.destroy();
+    return failedDeployment({
+      contractName,
+      version,
+      network,
+      reason: useFrame
+        ? `Frame unavailable: ${deploymentErrorMessage(error)}`
+        : "couldn't create signer",
+    });
+  }
 
   try {
     for (const asset of assets) {
@@ -307,8 +358,30 @@ async function deployTarget({
     );
     return failedCell();
   } finally {
+    disposeSigner?.();
     provider.destroy();
   }
+}
+
+/**
+ * Builds the signer used to broadcast deployment transactions. With Frame the
+ * wallet itself is the connected account (and the chain is selected on it),
+ * otherwise transactions are signed locally from MNEMONIC.
+ */
+async function createSigner(
+  network: NetworkConfig,
+  provider: JsonRpcProvider
+): Promise<{ signer: Signer; dispose?: () => void }> {
+  if (useFrame) {
+    const frame = connectProvider("frame");
+    frame.setChain(network.chainId);
+    const browserProvider = new BrowserProvider(frame, network.chainId);
+    const signer = await browserProvider.getSigner();
+    return { signer, dispose: () => frame.close() };
+  }
+
+  const signer = Wallet.fromPhrase(process.env.MNEMONIC as string, provider);
+  return { signer };
 }
 
 async function failedDeployment({

@@ -66,6 +66,8 @@ neither are the maintenance `commands/`.
 import { Contract } from "ethers";
 import {
   getZodiacModuleAbi, // helper to get a specific ABI by name and version
+  getZodiacModuleAddress, // helper to get a specific mastercopy address by name and version
+  sanityCheckZodiacModuleAddress, // throw when an address is unknown or known faulty
   KnownContracts, // enum of known Zodiac contract names
   CanonicalAddresses, // canonical mastercopy addresses, by name@version
   SupportedNetworks, // chain name -> chainId
@@ -73,7 +75,7 @@ import {
 
 // To interact with a specific version of a Zodiac module:
 const delayModule = new Contract(
-  address,
+  getZodiacModuleAddress(KnownContracts.DELAY, "1.1.1"),
   getZodiacModuleAbi(KnownContracts.DELAY, "1.1.1"),
   provider
 );

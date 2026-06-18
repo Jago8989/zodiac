@@ -11,4 +11,8 @@ export {
   SupportedNetworks,
 } from "./contracts.js";
 
-export { getZodiacModuleAbi } from "./abi.js";
+export {
+  getZodiacModuleAbi,
+  getZodiacModuleAddress,
+  sanityCheckZodiacModuleAddress,
+} from "./zodiacModule.js";

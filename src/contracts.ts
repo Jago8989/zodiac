@@ -140,3 +140,14 @@ export const CanonicalAddresses: Record<
     "1.0.0": "0x7dE07b9De0bf0FABf31A188DE1527034b2aF36dB",
   },
 };
+
+export const FAULTY: Partial<
+  Record<KnownContracts, { [version: `${number}.${number}.${number}`]: string }>
+> = {
+  [KnownContracts.DELAY]: {
+    "1.1.0": "0x01F8cabB808D7dE0dF4202D4B60C8310d2f1339b",
+  },
+  [KnownContracts.ROLES]: {
+    "2.1.0": "0x9646fDAD06d3e24444381f44362a3B0eB343D337",
+  },
+};

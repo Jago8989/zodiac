@@ -7,7 +7,6 @@ export {
 
 export {
   CanonicalAddresses,
-  ContractAddresses,
   KnownContracts,
   SupportedNetworks,
 } from "./contracts.js";

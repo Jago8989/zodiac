@@ -1,5 +1,3 @@
-import { networks } from "./networks.js";
-
 /**
  * Known Zodiac contracts and their canonical mastercopy addresses.
  *
@@ -142,30 +140,3 @@ export const CanonicalAddresses: Record<
     "1.0.0": "0x7dE07b9De0bf0FABf31A188DE1527034b2aF36dB",
   },
 };
-
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
-
-function latestAddress(contract: KnownContracts): string {
-  const versions = CanonicalAddresses[contract] || {};
-  const latest = Object.entries(versions)
-    .filter(([_, address]) => address)
-    .sort(([a], [b]) => a.localeCompare(b, undefined, { numeric: true }))
-    .pop();
-
-  return latest ? latest[1] : ZERO_ADDRESS;
-}
-
-export const ContractAddresses: Record<
-  SupportedNetworks,
-  Record<KnownContracts, string>
-> = Object.fromEntries(
-  networks.map(({ chainId }) => [
-    chainId,
-    Object.fromEntries(
-      Object.values(KnownContracts).map((contract) => [
-        contract,
-        latestAddress(contract),
-      ])
-    ),
-  ])
-) as Record<SupportedNetworks, Record<KnownContracts, string>>;

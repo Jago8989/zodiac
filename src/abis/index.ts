@@ -31,69 +31,69 @@ import { roles_2_1_1_ABI } from "./roles/2.1.1.js";
 import { scopeGuard_1_0_0_ABI } from "./scopeGuard/1.0.0.js";
 
 export const ABIs = {
-  "bridge": {
+  bridge: {
     "1.0.0": bridge_1_0_0_ABI,
   },
-  "circulatingSupplyERC20": {
+  circulatingSupplyERC20: {
     "1.0.0": circulatingSupplyERC20_1_0_0_ABI,
     "1.1.0": circulatingSupplyERC20_1_1_0_ABI,
     "1.2.0": circulatingSupplyERC20_1_2_0_ABI,
   },
-  "circulatingSupplyERC721": {
+  circulatingSupplyERC721: {
     "1.1.0": circulatingSupplyERC721_1_1_0_ABI,
     "1.2.0": circulatingSupplyERC721_1_2_0_ABI,
   },
-  "connext": {
+  connext: {
     "1.0.0": connext_1_0_0_ABI,
   },
-  "delay": {
+  delay: {
     "1.0.0": delay_1_0_0_ABI,
     "1.0.1": delay_1_0_1_ABI,
     "1.1.0": delay_1_1_0_ABI,
     "1.1.1": delay_1_1_1_ABI,
   },
-  "erc20Votes": {
+  erc20Votes: {
     "1.0.0": erc20Votes_1_0_0_ABI,
   },
-  "erc721Votes": {
+  erc721Votes: {
     "1.0.0": erc721Votes_1_0_0_ABI,
   },
-  "exit": {
+  exit: {
     "1.0.0": exit_1_0_0_ABI,
     "1.1.0": exit_1_1_0_ABI,
     "1.2.0": exit_1_2_0_ABI,
   },
-  "exitERC721": {
+  exitERC721: {
     "1.1.0": exitERC721_1_1_0_ABI,
     "1.2.0": exitERC721_1_2_0_ABI,
   },
-  "factory": {
+  factory: {
     "1.0.0": factory_1_0_0_ABI,
     "1.1.0": factory_1_1_0_ABI,
     "1.2.0": factory_1_2_0_ABI,
   },
-  "metaGuard": {
+  metaGuard: {
     "1.0.0": metaGuard_1_0_0_ABI,
   },
-  "multisendEncoder": {
+  multisendEncoder: {
     "1.0.0": multisendEncoder_1_0_0_ABI,
   },
-  "ozGovernor": {
+  ozGovernor: {
     "1.0.0": ozGovernor_1_0_0_ABI,
   },
-  "realityERC20": {
+  realityERC20: {
     "2.0.0": realityERC20_2_0_0_ABI,
   },
-  "realityETH": {
+  realityETH: {
     "2.0.0": realityETH_2_0_0_ABI,
   },
-  "roles": {
+  roles: {
     "1.0.0": roles_1_0_0_ABI,
     "1.1.0": roles_1_1_0_ABI,
     "2.1.0": roles_2_1_0_ABI,
     "2.1.1": roles_2_1_1_ABI,
   },
-  "scopeGuard": {
+  scopeGuard: {
     "1.0.0": scopeGuard_1_0_0_ABI,
   },
 } as const;

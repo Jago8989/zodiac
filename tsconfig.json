@@ -2,13 +2,13 @@
   "compilerOptions": {
     "declaration": true,
     "esModuleInterop": true,
-    "module": "commonjs",
-    "moduleResolution": "node",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
     "target": "esnext",
     "typeRoots": ["node_modules/@types", "typings"]
   },
-  "include": ["hardhat.config.ts", "sdk", "tasks", "test"]
+  "include": ["src", "commands"]
 }

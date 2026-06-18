@@ -16,7 +16,6 @@ jobs:
           scope: "@gnosis-guild"
       - run: yarn
       - run: yarn build
-      - run: yarn build:sdk
       - run: npm publish --access public --non-interactive
         env:
           NPM_AUTH_TOKEN: ${{secrets.NPM_AUTH_TOKEN}}

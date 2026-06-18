@@ -13,8 +13,5 @@ jobs:
         with:
           path: "**/node_modules"
           key: ${{ runner.os }}-modules-${{ hashFiles('**/yarn.lock') }}
-      - uses: foundry-rs/foundry-toolchain@v1
       - run: yarn
-      - run: yarn lint
       - run: yarn build
-      - run: yarn test

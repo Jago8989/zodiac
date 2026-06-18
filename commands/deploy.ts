@@ -334,7 +334,7 @@ function rpcUrlFor(network: NetworkConfig): string | null {
   if (network.alchemyRpcUrl && process.env.ALCHEMY_KEY) {
     return network.alchemyRpcUrl;
   }
-  return network.publicRpc;
+  return network.publicRpc ?? `https://rpc.gnosisguild.org/${network.chainId}`;
 }
 
 function deployedCell(): DeploymentCell {

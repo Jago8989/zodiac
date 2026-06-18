@@ -11,4 +11,4 @@ export {
   SupportedNetworks,
 } from "./contracts.js";
 
-export { ABIs } from "./abis/index.js";
+export { getZodiacModuleAbi } from "./abi.js";

@@ -1,10 +1,12 @@
 {
-  "extends": "./tsconfig",
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "target": "es2017",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "rootDir": "src",
     "outDir": "dist/cjs",
-    "module": "commonjs"
+    "declaration": false
   },
-  "include": ["sdk/**/*.ts"],
-  "exclude": ["sdk/**/__tests__/**/*"]
+  "include": ["src"],
+  "exclude": ["src/cli.ts"]
 }

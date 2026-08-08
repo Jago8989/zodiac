@@ -1,10 +1,12 @@
 {
-  "extends": "./tsconfig",
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "target": "es2016",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "rootDir": "src",
     "outDir": "dist/esm",
-    "module": "es6"
+    "declaration": true
   },
-  "include": ["sdk/**/*.ts"],
-  "exclude": ["sdk/**/__tests__/**/*"]
+  "include": ["src"],
+  "exclude": ["src/cli.ts"]
 }
